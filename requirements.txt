@@ -1,9 +1,9 @@
 PyQt5~=5.15.4
-pywin32
+pywin32~=306
 Pillow~=10.1.0
 PyAutoGUI~=0.9.54
 keyboard~=0.13.5
 qimage2ndarray
-numpy
+numpy~=1.19.5
 scipy
 opencv_python_headless

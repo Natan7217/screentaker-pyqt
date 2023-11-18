@@ -207,101 +207,88 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
    <property name="nativeMenuBar">
     <bool>true</bool>
    </property>
-   <widget class="QMenu" name="menu">
+   <widget class="QMenu" name="catch_screen_menu">
     <property name="title">
      <string>Захват экрана</string>
     </property>
-    <widget class="QMenu" name="menu_2">
+    <widget class="QMenu" name="screen_delay">
      <property name="title">
       <string>Задержка скриншота</string>
      </property>
-     <addaction name="action_7"/>
-     <addaction name="action1"/>
-     <addaction name="action3"/>
-     <addaction name="action5"/>
+     <addaction name="no_delay"/>
+     <addaction name="sec_1"/>
+     <addaction name="sec_3"/>
+     <addaction name="sec_5"/>
      <addaction name="separator"/>
-     <addaction name="action_8"/>
+     <addaction name="own_delay"/>
     </widget>
-    <addaction name="action"/>
-    <addaction name="action_2"/>
-    <addaction name="action_3"/>
-    <addaction name="action_4"/>
-    <addaction name="menu_2"/>
+    <addaction name="all_screen"/>
+    <addaction name="screen_area"/>
+    <addaction name="record_screen"/>
+    <addaction name="screen_delay"/>
    </widget>
-   <widget class="QMenu" name="menu_3">
+   <widget class="QMenu" name="open_menu">
     <property name="title">
      <string>Открыть</string>
     </property>
-    <addaction name="action_10"/>
-    <addaction name="action_11"/>
+    <addaction name="open_folder"/>
+    <addaction name="open_history"/>
    </widget>
-   <widget class="QMenu" name="about_program">
-    <property name="title">
-     <string>О программе</string>
-    </property>
-   </widget>
-   <widget class="QMenu" name="menu_5">
-    <property name="title">
-     <string>Горячие клавиши</string>
-    </property>
-   </widget>
-   <addaction name="menu"/>
-   <addaction name="menu_3"/>
-   <addaction name="menu_5"/>
-   <addaction name="about_program"/>
+   <addaction name="catch_screen_menu"/>
+   <addaction name="open_menu"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="action">
+  <action name="all_screen">
    <property name="text">
     <string>Весь экран</string>
    </property>
   </action>
-  <action name="action_2">
+  <action name="action">
    <property name="text">
     <string>Окно</string>
    </property>
   </action>
-  <action name="action_3">
+  <action name="screen_area">
    <property name="text">
     <string>Область</string>
    </property>
   </action>
-  <action name="action_4">
+  <action name="record_screen">
    <property name="text">
     <string>Запись экрана</string>
    </property>
   </action>
-  <action name="action_7">
+  <action name="no_delay">
    <property name="text">
     <string>Без задержки</string>
    </property>
   </action>
-  <action name="action1">
+  <action name="sec_1">
    <property name="text">
     <string>1 секунда</string>
    </property>
   </action>
-  <action name="action3">
+  <action name="sec_3">
    <property name="text">
     <string>3 секунды</string>
    </property>
   </action>
-  <action name="action5">
+  <action name="sec_5">
    <property name="text">
     <string>5 секунд</string>
    </property>
   </action>
-  <action name="action_8">
+  <action name="own_delay">
    <property name="text">
     <string>Произвольное количество</string>
    </property>
   </action>
-  <action name="action_10">
+  <action name="open_folder">
    <property name="text">
     <string>Папку скриншотов</string>
    </property>
   </action>
-  <action name="action_11">
+  <action name="open_history">
    <property name="text">
     <string>Историю</string>
    </property>

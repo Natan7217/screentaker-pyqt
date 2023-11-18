@@ -3,9 +3,9 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow,
     QLabel, QVBoxLayout, QWidget,
     QCheckBox, QSystemTrayIcon,
-    QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QMessageBox)
+    QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QMessageBox, QShortcut)
 from PyQt5.uic import loadUi
-from PyQt5.QtGui import QIcon, QPixmap, QMouseEvent, QFont
+from PyQt5.QtGui import QIcon, QPixmap, QMouseEvent, QFont, QKeySequence
 from PyQt5.QtCore import Qt, QPoint, QObject, pyqtSlot
 from PyQt5.QtWidgets import QAction
 # Importing widgets
@@ -13,18 +13,27 @@ from about_program import AboutScreenTakerDialog
 from full_screen_image import Img
 from setting_hotkeys import HotkeyConfigDialog
 from splashscreen import SplashScreen
+from screen_editor import EditScreenWidget
 # Importing stylesheets
 from stylesheets import vertical_scroll_bar_stylesheet, horizontal_scroll_bar_stylesheet
 # Importing "standard" libraries
 from typing import Optional, Union
 from io import BytesIO
 from PIL import Image
-import win32clipboard
+import uuid
+import pyautogui
 import os
 import sys
 import pathlib
 import ctypes
 import platform
+import keyboard
+import threading
+import json
+
+
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
 
 
 def linux_distribution() -> Optional[Union[tuple[str, str, str], str]]:
@@ -34,6 +43,14 @@ def linux_distribution() -> Optional[Union[tuple[str, str, str], str]]:
         return "N/A"
 
 
+IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp']
+SCREENS_FOLDER_PATH = f"{pathlib.Path(__file__).parent.absolute()}\\images\\screens"
+OPERATING_SYSTEM = platform.system() if linux_distribution() == "N/A" else "Linux"
+SCREEN_TAKER_APP_ID = 'natandev.screentaker'  # arbitrary app name (id)
+if OPERATING_SYSTEM == "Windows":
+    import win32clipboard
+
+
 def send_to_clipboard(clip_type, data) -> None:
     win32clipboard.OpenClipboard()
     win32clipboard.EmptyClipboard()
@@ -41,24 +58,20 @@ def send_to_clipboard(clip_type, data) -> None:
     win32clipboard.CloseClipboard()
 
 
-IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp']
-SCREENS_FOLDER_PATH = f"{pathlib.Path(__file__).parent.absolute()}\\images\\screens"
-OPERATING_SYSTEM = platform.system() if linux_distribution() == "N/A" else "Linux"
-
-
 class MainPage(QMainWindow):
     def __init__(self, tray_icon, application_icon):
         super(QMainWindow, self).__init__()
+        self.activateWindow()
         self.tray_icon: QSystemTrayIcon = tray_icon
         self.app_icon: QIcon = application_icon
+        self.stay_on_top = False
         loadUi("main.ui", self)
         self.setWindowTitle("ScreenTaker v1.0")
         # self.setMinimumSize()
         self.setWindowIcon(QIcon(f"{pathlib.Path(__file__).parent.absolute()}\\images\\images\\icon.png"))
         # Setting icon in the Windows taskbar, for linux I don't check it :O
         if OPERATING_SYSTEM == "Windows":
-            my_app_id = 'natandev.screentaker'  # arbitrary app name (id)
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(SCREEN_TAKER_APP_ID)
         elif OPERATING_SYSTEM == "Linux":
             pass  # maybe I'll check it
 
@@ -95,17 +108,26 @@ class MainPage(QMainWindow):
         # self.textBrowser.raise_()
         self.create_menu_connects()
 
+        with open("config.json", "r", encoding='utf-8') as f:
+            self.hotkeys = json.load(f)
+        self.screen_editor_widget = None
+        for hotkey_data in self.hotkeys:
+            if hotkey_data['name'] == 'Сделать скриншот':
+                keyboard.add_hotkey(hotkey_data['hotkey'], self.screen_editor)
+
     def create_menu_connects(self):
         menu_bar = self.menuBar()
 
         help_action = QAction(self.style().standardIcon(QStyle.SP_TitleBarContextHelpButton), "&Help", self)
         hotkeys_action = QAction("Горячие клавиши", self)
-        menu_bar.insertMenu(self.all_screen, )
+        # menu_bar.insertMenu(self.all_screen, )
         menu_bar.addAction(hotkeys_action)
         menu_bar.addAction(help_action)
         help_action.triggered.connect(self.open_about_program)
         hotkeys_action.triggered.connect(self.open_hotkey_setting)
-        self.about_program.triggered.connect(self.open_about_program)
+        self.open_folder.triggered.connect(self.open_folder_event)
+        self.all_screen.triggered.connect(self.take_screen)
+        # self.about_program.triggered.connect(self.open_about_program)
 
     def open_about_program(self):
         about_program_dialog = AboutScreenTakerDialog(self)
@@ -135,7 +157,6 @@ class MainPage(QMainWindow):
 
     def image_context_menu(self, pos: QPoint) -> None:
         context_menu = QMenu(self)
-
         open_menu = QMenu("Открыть", self)
         open_menu.setIcon(self.style().standardIcon(QStyle.SP_DialogOpenButton))
         copy_menu = QMenu("Копировать", self)
@@ -155,7 +176,6 @@ class MainPage(QMainWindow):
         open_file.triggered.connect(self.open_file_event)
 
         open_folder = QAction('Папку', self)
-        open_folder.setObjectName(f"{os.path.sep}".join(self.sender().accessibleName().split(os.path.sep)[:-1]))
         open_folder.setIcon(self.style().standardIcon(QStyle.SP_DirIcon))
         open_folder.triggered.connect(self.open_folder_event)
 
@@ -191,7 +211,35 @@ class MainPage(QMainWindow):
         context_menu.addMenu(open_menu)
         context_menu.addMenu(copy_menu)
         context_menu.addAction(delete_action)
+        self.all_screen.triggered.connect(self.take_screen)
         context_menu.exec_(self.sender().mapToGlobal(pos))
+
+    def take_screen(self):
+        screenshot = pyautogui.screenshot()
+        image_path = f"{SCREENS_FOLDER_PATH}\\{uuid.uuid4()}.png"
+        screenshot.save(image_path)
+        layout = QVBoxLayout()
+        pixmap = QPixmap(image_path)
+        image_label = QLabel()
+        image_label.setAccessibleName(image_path)
+
+        image_label.setPixmap(pixmap.scaled(300, 200, Qt.KeepAspectRatio))
+        image_label.mousePressEvent = lambda event, cur_num=0: self.open_full_screen_image(event, cur_num)
+
+        image_label.setContextMenuPolicy(Qt.CustomContextMenu)
+        image_label.customContextMenuRequested.connect(self.image_context_menu)
+
+        text_label = QLabel(image_path.split(os.path.sep)[-1])
+        text_label.setFont(QFont("Arial", 12))
+        text_label.setStyleSheet("color: rgb(255, 255, 255)")
+        text_label.setToolTip(f"<font color='black'>{image_path}</font>")
+        layout.addWidget(image_label)
+        layout.addWidget(text_label)
+        self.content_layout.insertLayout(0, layout)
+        self.pictures.insert(0, image_path)
+        for i in range(self.content_layout.count()):
+            self.content_layout.itemAt(i).layout().itemAt(0).widget().mousePressEvent = \
+                lambda event, cur_num=i: self.open_full_screen_image(event, cur_num)
 
     def open_file_event(self):
         if OPERATING_SYSTEM == "Windows":
@@ -218,7 +266,7 @@ class MainPage(QMainWindow):
     def open_folder_event(self):
         if OPERATING_SYSTEM == "Windows":
             try:
-                os.system('start ' + self.sender().objectName())
+                os.system('start ' + SCREENS_FOLDER_PATH)
             except Exception as e:
                 print(f"Error: {e}")
 
@@ -268,6 +316,30 @@ class MainPage(QMainWindow):
                 self.pictures.pop(i)
                 break
 
+    def screen_editor(self):
+        try:
+            """self.stay_on_top = not self.stay_on_top
+            if self.stay_on_top:
+                self.setWindowFlag(Qt.WindowStaysOnTopHint)
+            else:
+                self.setWindowFlag(Qt.WindowStaysOnTopHint, False)
+            self.show()"""
+            self.showMinimized()
+            # self.setWindowState(self.windowState() | Qt.WindowMinimized)
+            editor_thread = threading.Thread(target=self.run_screen_editor)
+            editor_thread.start()
+        except Exception as e:
+            print(e)
+
+    def run_screen_editor(self):
+        screen_editor_app = QApplication(sys.argv)
+        self.screen_editor_widget = EditScreenWidget(parent=self)
+        QApplication.restoreOverrideCursor()
+        screen_editor_app.exec_()
+
+    def on_snipping_completed(self):
+        pass
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -294,6 +366,9 @@ if __name__ == "__main__":
     tray_menu.addAction(quit_action)
     system_tray.setContextMenu(tray_menu)
     splash.close()
+    shortcut = QShortcut(QKeySequence('Ctrl+P'), main_window)
+    shortcut.activated.connect(main_window.screen_editor)
     system_tray.show()
     main_window.show()
+    sys.excepthook = except_hook
     sys.exit(app.exec_())
