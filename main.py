@@ -334,7 +334,6 @@ class MainPage(QMainWindow):
     def run_screen_editor(self):
         screen_editor_app = QApplication(sys.argv)
         self.screen_editor_widget = EditScreenWidget(parent=self)
-        QApplication.restoreOverrideCursor()
         screen_editor_app.exec_()
 
     def on_snipping_completed(self):
